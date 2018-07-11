@@ -3,10 +3,10 @@ package br.unb.cic.reminders.view;
 import br.unb.cic.framework.persistence.DBException;
 import br.unb.cic.reminders.controller.Controller;
 import br.unb.cic.reminders.model.Reminder;
-//#if staticCategory || manageCategory 
+//#if staticCategory || manageCategory
 import br.unb.cic.reminders.model.Category;
 import java.util.List;
-//#endif 
+//#endif
 
 public class AddReminderActivity extends ReminderActivity {
 	@Override
@@ -40,14 +40,4 @@ public class AddReminderActivity extends ReminderActivity {
 		}
 	}
 
-	//#if staticCategory || manageCategory
-	private Category findCategory(Category category) throws Exception {
-		List<Category> categories = Controller.instance(getApplicationContext()).listCategories();
-		for (Category c : categories) {
-			if (c.getName().equals(category.getName()))
-				return c;
-		}
-		return null;
-	}
-	//#endif
 }

@@ -2,12 +2,12 @@ var fs = require('fs')
 var lr = require('readline')
 var stringify = require('csv-stringify')
 
-var Class    = ''
+var Class    = 'AddReminderActivity'
 var Func     = ''
 var FuncType = ''
 
 var Env      = []
-
+var Track    = []
 
 function main () {
 
@@ -17,18 +17,18 @@ function main () {
     var lineReader = lr.createInterface({
       input: fs.createReadStream('./javas/AddReminderActivity.java')
     })
-  
+
     lineReader.on('line', (l) => {
-      handleLine(l.trim())      
+      handleLine(l.trim())
     })
 
-    // lineReader.on('close', () => {
-    //   // console.log(Env)
-    //   stringify(Env, function(err, output){
-    //     console.log(output)
-    //   });
-    //   // writeCSV()
-    // })
+    lineReader.on('close', () => {
+      // console.log(Env)
+      // stringify(Env, function(err, output){
+      //   console.log(output)
+      // });
+      // writeCSV()
+    })
   // }
 
 }
@@ -36,9 +36,9 @@ function main () {
 
 function saveOrUpdateEnv (feature) {
   let exists = false
-  
+
   for (obj of Env) {
-    if (obj.feature == feature && obj.class == Class) {
+    if (obj.feature == feature && obj.jClass == Class) {
       obj.active = true
       exists     = true
     }
@@ -46,7 +46,7 @@ function saveOrUpdateEnv (feature) {
 
   if (!exists) {
     Env.push({
-      class: Class,
+      jClass: Class,
       feature: feature,
       // function: {
       //   type: FuncType,
@@ -60,51 +60,94 @@ function saveOrUpdateEnv (feature) {
 
 function handleLine (line) {
 
-  if (line.startsWith('public class ')) {
-    Class = line.substring(6).split(' extends ')[0]
-    console.log(Class)
-  }
+  if (line.startsWith('//#if ')) {
+    let fs
+    let unique = false
 
-  // else if (line.startsWith('protected ')) {
-  //   let data = line.split(/[\s,]+/)
-  //   FuncType = data[1]
-  //   Func     = data[2].split('(')[0] + '()'
-  //   console.log(FuncType)
-  // }
-
-  // else if (line.startsWith('private ')) {
-  //   let data = line.split(/[\s,]+/)
-  //   FuncType = data[1]
-  //   Func     = data[2].split('(')[0] + '()'
-  //   console.log(FuncType)
-  // }
-
-  else if (line.startsWith('//#if ')) {
-    const fs = line.substring(6).split(' && ')
-    for (f of fs) {
-      saveOrUpdateEnv(f)  
+    if (line.includes('&&') && line.includes('||')) {
+      fs = line.substring(6)
+      fs = fs.split(/[^a-zA-Z]/)
+             .filter( (v) => v !== '')
+             .sort()
+             .reduce((init, current) => {
+               if (init.length === 0 || init[init.length - 1] !== current) {
+                 init.push(current);
+               }
+               return init;
+             }, [])
+      Track.push(fs)
     }
+
+    else if (line.includes('&&')) {
+      fs = line.substring(6).split(' && ')
+      Track.push(fs)
+    }
+
+    else if (line.includes('||')) {
+      fs = line.substring(6).split(' || ')
+      Track.push(fs)
+    }
+
+    else {
+      fs = line.substring(6)
+      unique = true
+    }
+
+    if (unique) {
+      saveOrUpdateEnv(fs)
+    } else {
+      for (f of fs) {
+        saveOrUpdateEnv(f)
+      }
+    }
+
   }
 
   else if (line.startsWith('//#ifdef ')) {
     const f = line.substring(9)
-    saveOrUpdateEnv(f)    
+    Track.push(f)
+    saveOrUpdateEnv(f)
+  }
+
+  else if (line.startsWith('//#elifdef ')) {
+    const f = line.substring(11)
+    saveOrUpdateEnv(f)
+    setInactive(Track.pop())
+    Track.push(f)
   }
 
   else if (line.startsWith('//#endif')) {
+    setInactive(Track.pop())
+  }
+
+  else {
+    // Count active feature lines
     for (f of Env) {
       if (f.active) {
-        f.active = false
+        f.counter = f.counter + 1
       }
     }
   }
 
-  // Count active feature lines
-  for (f of Env) {
-    if (f.active) {
-      f.counter = f.counter + 1
+}
+
+function setInactive (feature) {
+  if (feature instanceof Array) {
+    for (ff of feature) {
+      for (f of Env) {
+        if (f.feature == ff && f.jClass == Class) {
+          f.active = false
+        }
+      }
+    }
+  } else {
+    for (f of Env) {
+      if (f.feature == feature && f.jClass == Class) {
+        f.active = false
+      }
     }
   }
+  console.log(Env)
 }
 
 
