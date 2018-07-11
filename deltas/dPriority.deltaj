@@ -1,0 +1,491 @@
+delta dPriority {
+	modifies br.unb.cic.reminders.view.ReminderFilterArrayAdapter {
+		removes ReminderFilterArrayAdapter(Context context, List<ReminderFilter> objects);
+		//#ifdef priority
+		adds public ReminderFilterArrayAdapter(Context context, List<ReminderFilter> objects) {
+			super(context, R.layout.category_row, objects);
+		}
+		//#endif
+		removes getView(int position, View convertView, ViewGroup parent);
+		//#ifdef priority
+		adds @Override 
+		public View getView(int position, View convertView, ViewGroup parent) {
+			LinearLayout filterRow;
+
+			if (convertView == null) {
+				filterRow = new LinearLayout(getContext());
+				String inflater = Context.LAYOUT_INFLATER_SERVICE;
+				LayoutInflater vi;
+				vi = (LayoutInflater) getContext().getSystemService(inflater);
+				vi.inflate(R.layout.category_row, filterRow, true);
+			} else {
+				filterRow = (LinearLayout) convertView;
+			}
+
+			TextView tvFilter = (TextView) filterRow.findViewById(R.id.row_categoryName);
+			tvFilter.setText(getItem(position).getName());
+
+			TextView tvNumReminders = (TextView) filterRow.findViewById(R.id.row_categoryCounter);
+			tvNumReminders.setText(Integer.toString(getItem(position).getNumReminders()));
+
+			return filterRow;
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.ReminderMainActivity {
+		//#ifdef priority
+		adds import br.unb.cic.reminders.view.FilterListFragment;
+		//#endif
+		removes createUI();
+		//#ifdef priority
+		adds private void createUI() {
+			FragmentTransaction ft = getFragmentManager().beginTransaction();
+			ReminderListFragment listReminderFragment = new ReminderListFragment();
+			FilterListFragment listCategoryFragment = new FilterListFragment();
+			listCategoryFragment.addListener(listReminderFragment);
+			ft.add(R.id.listReminders, listReminderFragment);
+			ft.add(R.id.listCategories, listCategoryFragment);
+			ft.commit();
+		}
+		//#endif
+	}
+	adds {
+		//#ifdef priority
+		package br.unb.cic.reminders.view;
+
+		import java.util.ArrayList;
+		import java.util.List;
+
+		import android.app.Fragment;
+		import android.os.Bundle;
+		import android.util.Log;
+		import android.view.ContextMenu;
+		import android.view.ContextMenu.ContextMenuInfo;
+		import android.view.LayoutInflater;
+		import android.view.MenuInflater;
+		import android.view.View;
+		import android.view.ViewGroup;
+		import android.widget.AdapterView;
+		import android.widget.AdapterView.OnItemClickListener;
+		import android.widget.Button;
+		import android.widget.ListView;
+		import br.unb.cic.framework.persistence.DBException;
+		import br.unb.cic.reminders.controller.AllRemindersFilter;
+		import br.unb.cic.reminders.controller.Controller;
+		import br.unb.cic.reminders.controller.PriorityFilter;
+		import br.unb.cic.reminders.controller.ReminderFilter;
+		import br.unb.cic.reminders.model.Priority;
+		import br.unb.cic.reminders2.R;
+
+		public class FilterListFragment extends Fragment implements OnItemClickListener {
+
+		private static final String CURRENT_FILTER_KEY = "current_filter";
+
+		private static String TAG = "filter fragment list";
+
+		private int currentFilterIndex;
+
+		private List<FiltersListChangeListener> listeners;
+
+		private FiltersListChangeListener filtersChangeListener;
+
+		private int currentFilterId;
+		private ReminderFilterArrayAdapter adapter;
+		private View view;
+
+		private Button btAddCategory;
+		private ListView lvFilters;
+
+		@Override
+		public void onActivityCreated(Bundle savedInstanceState) {
+			super.onActivityCreated(savedInstanceState);
+
+			if (savedInstanceState != null) {
+				currentFilterIndex = savedInstanceState.getInt(CURRENT_FILTER_KEY);
+			}
+
+			currentFilterId = 0;
+
+			adapter = null;
+		}
+
+		@Override
+		public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+			view = inflater.inflate(R.layout.categories_list_fragment, container, false);
+			createUI();
+			return view;
+		}
+
+		@Override
+		public void onResume() {
+			super.onResume();
+			updateListView();
+		}
+
+		public void addListener(FiltersListChangeListener filter) {
+			if (listeners == null)
+				listeners = new ArrayList<FiltersListChangeListener>();
+			listeners.add(filter);
+		}
+
+		public void notifyListeners(ReminderFilter filter) {
+			for (FiltersListChangeListener c : listeners) {
+				c.onSelectedFilterChanged(filter);
+			}
+		}
+
+		private void createUI() {
+			lvFilters = (ListView) view.findViewById(R.id.listCategories);
+			lvFilters.setOnItemClickListener(this);
+			registerForContextMenu(lvFilters);
+			updateListView();
+		}
+
+		private void updateListView() {
+
+			List<ReminderFilter> filters = listOfFilters();
+
+			adapter = new ReminderFilterArrayAdapter(getActivity().getApplicationContext(), filters);
+
+			lvFilters.setAdapter(adapter);
+		}
+
+		private List<ReminderFilter> listOfFilters() {
+				List<ReminderFilter> filters = new ArrayList<ReminderFilter>();
+
+				AllRemindersFilter allRemindersFilter = new AllRemindersFilter(getActivity());
+				filters.add(allRemindersFilter);
+
+				PriorityFilter highPriorityFilter = new PriorityFilter(Priority.HIGH, getActivity());
+				filters.add(highPriorityFilter);
+				PriorityFilter normalPriorityFilter = new PriorityFilter(Priority.NORMAL, getActivity());
+				filters.add(normalPriorityFilter);
+				PriorityFilter lowPriorityFilter = new PriorityFilter(Priority.LOW, getActivity());
+				filters.add(lowPriorityFilter);
+
+				return filters;
+			}
+
+		public void onItemClick(AdapterView<? extends Object> adapterView, View view, int position, long id) {
+			notifyListeners(adapter.getItem(position));
+
+		}
+
+		public void onNothingSelected(AdapterView<? extends Object> arg0) {
+
+		}
+
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.model.db.DBConstants {
+		//#ifdef priority
+		modifies tableStatement() {
+			return original() + "PRIORITY INTEGER NOT NULL,";
+		}
+		adds public static String REMINDER_PRIORITY_COLUMN = "PRIORITY";
+		//#endif
+	}
+	adds {
+		//#ifdef priority
+		package br.unb.cic.reminders.controller;
+
+		import android.content.Context;
+		import br.unb.cic.reminders.model.Priority;
+		import br.unb.cic.reminders.model.Reminder;
+
+		public class PriorityFilter extends ReminderFilter {
+
+			private Priority priority;
+
+			public PriorityFilter(Priority priority, Context context) {
+				super(context);
+				this.priority = priority;
+			}
+
+			@Override
+			protected boolean selectReminder(Reminder r) {
+				return r.getPriority() == priority.getCode();
+			}
+
+			@Override
+			public String getName() {
+				return priority.toString();
+			}
+
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.model.db.DefaultReminderDAO {
+		//#ifdef priority
+		adds import br.unb.cic.reminders.model.Priority;
+		modifies createReminderCursor(Cursor cursor) {
+			Reminder reminder = original(cursor);
+			int priority = cursor.getInt(cursor.getColumnIndex(DBConstants.REMINDER_PRIORITY_COLUMN));
+			reminder.setPriority(Priority.fromCode(priority));
+			return reminder;
+		}
+		//#endif
+	}
+	adds {
+		//#ifdef priority
+		package br.unb.cic.reminders.model;
+
+		public enum Priority {
+
+			LOW(0, "No Priority"), NORMAL(1, "Important"), HIGH(2, "Urgent");
+
+			int code;
+			String description;
+
+			private Priority(int code, String description) {
+				this.code = code;
+				this.description = description;
+			}
+
+			public int getCode() {
+				return code;
+			}
+
+			static public Priority fromCode(int code) {
+				for (Priority p : Priority.values()) {
+					if (p.getCode() == code) {
+						return p;
+					}
+				}
+				throw new IllegalArgumentException();
+			}
+
+			@Override
+			public String toString() {
+				return description;
+			}
+
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.model.Reminder {
+		//#ifdef priority
+		adds @Column(column = "PRIORITY", type = DBTypes.INT) private Priority priority;
+		adds public int getPriority() {
+			return priority.getCode();
+		}
+		adds public void setPriority(Priority priority) {
+			this.priority = priority;
+		}
+		modifies isValid() {
+			return(priority != null && original());
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.EditReminderActivity {
+		//#ifdef priority
+		adds import br.unb.cic.reminders.model.Priority;
+		modifies initializeValues(Intent intent) {
+			original(intent);
+			String priority = intent.getStringExtra("priority");
+			spinnerPriority.setSelection(Priority.fromCode(Integer.parseInt(priority, 10)).getCode());
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.ExternalAddReminderActivity {
+		//#ifdef priority
+		adds import br.unb.cic.reminders.model.Priority;
+		modifies reminderFromIntent(Intent intent) {
+			original(intent);
+			String priority = intent.getStringExtra("priority");
+			reminder.setPriority(Priority.fromCode(Integer.parseInt(priority)));
+		}
+		modifies initialize() {
+			original();
+			spinnerPriority.setSelection(reminder.getPriority());
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.ReminderArrayAdapter {
+		removes getView(int position, View convertView, ViewGroup parent);
+		//#ifdef priority
+		adds @Override 
+		public View getView(int position, View convertView, ViewGroup parent) {
+			LinearLayout reminderRow;
+
+			if (convertView == null) {
+				reminderRow = new LinearLayout(getContext());
+				String inflater = Context.LAYOUT_INFLATER_SERVICE;
+				LayoutInflater vi;
+				vi = (LayoutInflater) getContext().getSystemService(inflater);
+				vi.inflate(R.layout.reminder_row, reminderRow, true);
+			} else {
+				reminderRow = (LinearLayout) convertView;
+			}
+			TextView tvReminder = (TextView) reminderRow.findViewById(R.id.txtReminder);
+			view(position, tvReminder, reminderRow);
+			ImageView ivPriority = (ImageView) reminderRow.findViewById(R.id.ivPriority);
+			if (getItem(position).getPriority() == 1)
+				ivPriority.setImageResource(R.drawable.important);
+			else if (getItem(position).getPriority() == 2)
+				ivPriority.setImageResource(R.drawable.urgent);
+			if (getItem(position).getPriority() != 0)
+				tvReminder.setTypeface(null, Typeface.BOLD);
+			return reminderRow;
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.ReminderListFragment {
+		//#ifdef priority
+		adds import android.app.FragmentTransaction;
+		adds public void reloadFilterListFragment() {
+			Fragment currentFragment = getActivity().getFragmentManager().findFragmentById(R.id.listCategories);
+			if (currentFragment instanceof FilterListFragment) {
+				FragmentTransaction fragTransaction = (getActivity()).getFragmentManager().beginTransaction();
+				fragTransaction.detach(currentFragment);
+				fragTransaction.attach(currentFragment);
+				fragTransaction.commit();
+			}
+		}
+		//#endif
+		removes onContextItemSelected(MenuItem item);
+		//#ifdef priority
+		adds @Override
+		public boolean onContextItemSelected(MenuItem item) {
+			if (item.getGroupId() == R.id.context_menu_reminder) { 
+				AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+				Reminder reminder = (Reminder) contextMenuAdapter.getItem(info.position);
+
+				switch (item.getItemId()) {
+				case R.id.edit:
+					Intent editIntent = editIntent(reminder);
+					editIntent.putExtra("id", reminder.getId());
+					editIntent.putExtra("text", reminder.getText());
+					editIntent.putExtra("details", reminder.getDetails());
+					startActivity(editIntent);
+					updateListView(null);
+					return true;
+				case R.id.delete:
+					try {
+						Controller.instance(getActivity().getApplicationContext()).deleteReminder(reminder);
+					} catch (DBException e) {
+						Log.e(TAG, e.getMessage());
+					}
+					reloadFilterListFragment();
+					updateListView(null);
+					return true;
+				default:
+					return super.onContextItemSelected(item);
+				}
+
+			}
+			return super.onContextItemSelected(item);
+		}
+		modifies editIntent(Reminder reminder) {
+			Intent editIntent = original(reminder);
+			editIntent.putExtra("priority", Integer.toString(reminder.getPriority()));
+			return editIntent;
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.ReminderActivity {
+		//#ifdef priority
+		adds import br.unb.cic.reminders.model.Priority;
+		adds private Priority selectedPriority;
+		adds protected Spinner spinnerPriority;
+		modifies initializeFields() {
+			spinnerPriority = getSpinnerPriority();
+			original();
+		}
+		modifies initializeListeners() {
+			addListenerToSpinnerPriority();
+			original();
+		}
+		adds private void addListenerToSpinnerPriority() {
+			spinnerPriority.setOnItemSelectedListener(new OnItemSelectedListener() {
+				public void onItemSelected(AdapterView<? extends Object> parent, View view, int pos, long id) {
+					selectedPriority = (Priority) parent.getItemAtPosition(pos);
+				}
+
+				public void onNothingSelected(AdapterView<? extends Object> parent) {
+				}
+			});
+		}
+		modifies setValuesOnReminder() {
+			original();
+			reminder.setPriority(selectedPriority);
+		}
+		adds private Spinner getSpinnerPriority() {
+			Spinner spinner = (Spinner) findViewById(R.id.spinnerPriorities);
+
+			SpinnerAdapterGenerator<Priority> adapterPriorityGenerator = new SpinnerAdapterGenerator<Priority>();
+
+			List<Priority> priorityValues = Arrays.asList(Priority.values());
+
+			ArrayAdapter<Priority> priorityArrayAdapter = adapterPriorityGenerator.getSpinnerAdapter(priorityValues, this);
+
+			spinner.setAdapter(priorityArrayAdapter);
+
+			spinner.setSelection(Priority.NORMAL.getCode());
+
+			return spinner;
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.ReminderAddActivity {
+		//#ifdef priority
+		adds import br.unb.cic.reminders.model.Priority;
+		adds private Priority selectedPriority;
+		adds private Spinner spinnerPriority;
+		modifies configureActionListener() {
+			original();
+			addListenerToSpinnerPriority();
+		}
+		adds private void addListenerToSpinnerPriority() {
+			spinnerPriority.setOnItemSelectedListener(new OnItemSelectedListener() {
+				public void onItemSelected(AdapterView<? extends Object> parent, View view, int pos, long id) {
+					selectedPriority = (Priority) parent.getItemAtPosition(pos);
+				}
+
+				public void onNothingSelected(AdapterView<? extends Object> parent) {
+				}
+			});
+		}
+		modifies createReminderAux() {
+			Reminder reminder = original();
+			reminder.setPriority(selectedPriority);
+			return reminder;
+		}
+		modifies createReminderExisting(Intent intent) {
+			Reminder reminder = original(intent);
+			String priority = intent.getStringExtra("priority");
+			reminder.setPriority(Priority.fromCode(Integer.parseInt(priority, 10)));
+			return reminder;
+		}
+		modifies createReminderIntent(Intent intent) {
+			Reminder reminder = original(intent);
+			String priority = intent.getStringExtra("priority");
+			return reminder;
+		}
+		modifies initialize(Reminder reminder) {
+			spinnerPriority = getSpinnerPriority();
+			original(reminder);
+		}
+		modifies updateFieldsFromReminder(Reminder reminder) {
+			original(reminder);
+			spinnerPriority.setSelection(reminder.getPriority());
+		}
+		adds private Spinner getSpinnerPriority() {
+			Spinner spinner = (Spinner) findViewById(R.id.spinnerPriorities);
+
+			SpinnerAdapterGenerator<Priority> adapterPriorityGenerator = new SpinnerAdapterGenerator<Priority>();
+
+			List<Priority> priorityValues = Arrays.asList(Priority.values());
+
+			ArrayAdapter<Priority> priorityArrayAdapter = adapterPriorityGenerator.getSpinnerAdapter(priorityValues, this);
+
+			spinner.setAdapter(priorityArrayAdapter);
+
+			spinner.setSelection(Priority.NORMAL.getCode());
+
+			return spinner;
+		}
+		//#endif
+	}
+}

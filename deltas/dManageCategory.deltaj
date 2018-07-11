@@ -1,0 +1,591 @@
+delta dManageCategory {
+	adds {
+		//#ifdef manageCategory
+		package br.unb.cic.reminders.view;
+
+		import android.annotation.SuppressLint;
+		import android.app.AlertDialog;
+		import android.app.Dialog;
+		import android.app.DialogFragment;
+		import android.content.DialogInterface;
+		import android.os.Bundle;
+		import android.util.Log;
+		import android.view.LayoutInflater;
+		import android.view.View;
+		import android.widget.ArrayAdapter;
+		import android.widget.EditText;
+		import android.widget.Spinner;
+		import android.widget.Toast;
+		import br.unb.cic.reminders.model.Category;
+		import br.unb.cic.reminders.model.InvalidTextException;
+		import br.unb.cic.reminders2.R;
+
+		@SuppressLint("NewApi")
+		public class AddCategoryDialogFragment extends DialogFragment {
+
+			private Spinner spinner;
+
+			public static AddCategoryDialogFragment newInstance(Spinner spinner) {
+				AddCategoryDialogFragment fragment = new AddCategoryDialogFragment();
+				fragment.setSpinner(spinner);
+				return fragment;
+			}
+
+			public void setSpinner(Spinner spinner) {
+				this.spinner = spinner;
+			}
+
+			@Override
+			public Dialog onCreateDialog(Bundle savedInstanceState) {
+				AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+				builder.setTitle(R.string.dialog_addcategory_title);
+				LayoutInflater inflater = getActivity().getLayoutInflater();
+
+				final View view = inflater.inflate(R.layout.category_dialog, null);
+				builder.setView(view)
+.setPositiveButton(R.string.dialog_addcategory_add, new
+					DialogInterface.OnClickListener() {
+						@SuppressWarnings("unchecked")
+						public void onClick(DialogInterface dialog, int which) {
+							EditText edtCategoryName = ( EditText )
+							view.findViewById(R.id.dialog_category);
+
+							for(int i = 0;
+								i < spinner.getCount();
+								i ++) {
+								Category c = ( Category ) spinner.getItemAtPosition(i);
+								if(c.getName().equals(edtCategoryName.getText().toString())) {
+									spinner.setSelection(i);
+									return;
+								}
+							}
+
+							Category category = new Category();
+							try {
+								category.setName(edtCategoryName.getText().toString());
+								if(spinner != null) {
+									ArrayAdapter<Category> adapter = ( ArrayAdapter<Category> )
+									spinner.getAdapter();
+									if(adapter.getCount() >= 2 && adapter.getItem(adapter.getCount() -
+											2).getId() == null) {
+										adapter.remove(adapter.getItem(adapter.getCount() - 2));
+									}
+									adapter.insert(category, adapter.getCount() - 1);
+									spinner.setSelection(adapter.getCount() - 2);
+								}
+							}
+							catch(InvalidTextException e) {
+								Log.e("CategoryDialogFragment", e.getMessage()); 
+								e.printStackTrace();
+								Toast.makeText(getActivity().getApplicationContext(),
+									"Invalid category.", Toast.LENGTH_SHORT).show();
+
+							}
+							catch(Exception e) {
+								Log.e("CategoryDialogFragment", e.getMessage());
+								e.printStackTrace();
+							}
+						}
+					})
+.setNegativeButton(R.string.dialog_category_cancel, new
+					DialogInterface.OnClickListener() {
+						public void onClick(DialogInterface dialog, int id) {
+							spinner.setSelection(0);
+							AddCategoryDialogFragment.this.getDialog().cancel();
+						}
+					});
+
+				return builder.create();
+			}
+
+			@Override
+			public void onDestroy() {
+				super.onDestroy();
+
+			}
+		}
+		//#endif
+	}
+	adds {
+		//#ifdef manageCategory
+		package br.unb.cic.reminders.controller;
+
+		import android.content.Context;
+		import br.unb.cic.reminders.model.Category;
+		import br.unb.cic.reminders.model.Reminder;
+
+		public class CategoryFilter extends ReminderFilter {
+
+			private Category category;
+
+			public CategoryFilter(Category category, Context context) {
+				super(context);
+				this.category = category;
+			}
+
+			@Override
+			protected boolean selectReminder(Reminder r) {
+				return r.getCategory().getName().equals(category.getName());
+			}
+
+			public Category getCategory() {
+				return category;
+			}
+
+			@Override
+			public String getName() {
+				return category.getName();
+			}
+
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.controller.Controller {
+		removes notImplementedYet();
+		//#ifdef manageCategory
+		adds public void deleteReminderByCategory(Category category) throws DBException {
+			try {
+				List<Reminder> allReminders =
+				DBFactory.factory(context).createReminderDAO().listRemindersByCategory(category);
+				for(Reminder reminder : allReminders) {
+					DBFactory.factory(context).createReminderDAO().deleteReminder(reminder);
+				}
+			}
+			catch(DBException e) {
+				throw e;
+			}
+		}
+		adds public void addCategory(Category category) throws Exception {
+			try {
+				DBFactory.factory(context).createCategoryDAO().saveCategory(category);
+			}
+			catch(DBException e) {
+				throw e;
+			}
+		}
+		adds public void updateCategory(Category category) throws DBException {
+			try {
+				DBFactory.factory(context).createCategoryDAO().updateCategory(category);
+			}
+			catch(DBException e) {
+				throw e;
+			}
+		}
+		adds public void deleteCategory(Category category) throws DBException {
+			try {
+				DBFactory.factory(context).createCategoryDAO().deleteCategory(category);
+			}
+			catch(DBException e) {
+				throw e;
+			}
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.model.cp.ReminderContentProvider {
+		//#ifdef manageCategory
+		modifies createCategoryInsert(ContentValues values) {
+			Category category = original(values);
+			if(category == null) {
+				Category auxCategory = new Category();
+				auxCategory.setName(values.getAsString(category()));
+				cdao.saveCategory(auxCategory);
+				category = cdao.findCategory(values.getAsString(category()));
+			}
+			return category;
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.model.db.CategoryDAO {
+		//#ifdef manageCategory
+		adds public void saveCategory(Category category) throws DBException;
+		adds public void updateCategory(Category category) throws DBException;
+		adds public void deleteCategory(Category category) throws DBException;
+		//#endif
+	}
+	modifies br.unb.cic.reminders.model.db.DefaultCategoryDAO {
+		//#ifdef manageCategory
+		adds public void saveCategory(Category category) throws DBException {
+			try {
+				persist(category);
+			}
+			catch(DBInvalidEntityException e) {
+				throw new DBException();
+			}
+		}
+		adds public void updateCategory(Category category) throws DBException {
+			try {
+				try {
+					persist(category);
+				}
+				catch(DBInvalidEntityException e) {
+					throw new DBException();
+				}
+			}
+			catch(SQLiteException e) {
+				Log.e(DefaultCategoryDAO.class.getCanonicalName(),
+					e.getLocalizedMessage());
+				throw new DBException();
+			}
+			finally {
+				db.close();
+				dbHelper.close();
+			}
+		}
+		adds public void deleteCategory(Category category) throws DBException {
+			try {
+				db = dbHelper.getWritableDatabase();
+				db.delete(DBConstants.CATEGORY_TABLE, DBConstants.CATEGORY_PK_COLUMN + "="
+					+ category.getId(), null);
+			}
+			catch(SQLiteException e) {
+				Log.e(DefaultCategoryDAO.class.getCanonicalName(),
+					e.getLocalizedMessage());
+				throw new DBException();
+			}
+			finally {
+				db.close();
+				dbHelper.close();
+			}
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.AddReminderActivity {
+		removes persist(Reminder reminder);
+		//#ifdef manageCategory
+		adds @Override
+		protected void persist(Reminder reminder) {
+			try {
+				Category category = findCategory(reminder.getCategory());
+				if(category != null) {
+					reminder.setCategory(category);
+				}
+				else {
+					Controller.instance(getApplicationContext()).addCategory(reminder.getCategory());
+					reminder.setCategory(findCategory(reminder.getCategory()));
+				}
+			}
+			catch(Exception e) {
+				e.printStackTrace();
+			}
+
+			try {
+				Controller.instance(getApplicationContext()).addReminder(reminder);
+			}
+			catch(DBException e) {
+				e.printStackTrace();
+			}
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.ExternalAddReminderActivity {
+		//#ifdef manageCategory
+		adds private boolean isNewCategory = false;
+		modifies setNewCategory(Intent intent) {
+			original(intent);
+			String categoryName = intent.getStringExtra("category_name");
+			if(newCategory == null) {
+				isNewCategory = true;
+				newCategory = new Category();
+				newCategory.setName(categoryName);
+			}
+		}
+		//#endif
+		removes persist(Reminder reminder);
+		//#ifdef manageCategory
+		adds @Override
+		protected void persist(Reminder reminder) {
+			try {
+				if(isNewCategory) {
+					Controller.instance(getApplicationContext()).addCategory(reminder.getCategory());
+					reminder.setCategory(findCategory(reminder.getCategory()));
+				}
+				Controller.instance(getApplicationContext()).addReminder(reminder);
+			}
+			catch(DBException e) {
+				e.printStackTrace();
+			}
+			catch(Exception e) {
+				e.printStackTrace();
+			}
+		}
+		modifies initialize() {
+			original();
+			if(isNewCategory) spinnerCategory.setSelection(spinnerCategory.getCount() - 2);
+		}
+		//#endif
+		removes getCategories();
+		//#ifdef manageCategory
+		adds @Override
+		protected List<Category> getCategories() throws Exception {
+			List<Category> categories = super.getCategories();
+			if(isNewCategory) {
+				categories.add(newCategory);
+			}
+			return categories;
+		}
+		//#endif
+	}
+	adds {
+		//#ifdef manageCategory
+		package br.unb.cic.reminders.view;
+
+		import android.app.AlertDialog;
+		import android.app.Dialog;
+		import android.app.DialogFragment;
+		import android.content.DialogInterface;
+		import android.os.Bundle;
+		import android.util.Log;
+		import android.view.LayoutInflater;
+		import android.view.View;
+		import android.widget.EditText;
+		import android.widget.Toast;
+		import br.unb.cic.framework.persistence.DBException;
+		import br.unb.cic.reminders.controller.Controller;
+		import br.unb.cic.reminders.model.Category;
+		import br.unb.cic.reminders.model.InvalidTextException;
+		import br.unb.cic.reminders2.R;
+
+		public class EditCategoryDialogFragment extends DialogFragment {
+
+			Category category;
+
+			public static EditCategoryDialogFragment newInstance(Category category) {
+				EditCategoryDialogFragment fragment = new EditCategoryDialogFragment();
+				fragment.setCategory(category);
+				return fragment;
+			}
+
+			public void setCategory(Category category) {
+				this.category = category;
+			}
+
+			@Override
+			public Dialog onCreateDialog(Bundle savedInstanceState) {
+				AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+				builder.setTitle(R.string.dialog_editcategory_title);
+				LayoutInflater inflater = getActivity().getLayoutInflater();
+
+				final View view = inflater.inflate(R.layout.category_dialog, null);
+
+				EditText edtCategoryName = ( EditText )
+				view.findViewById(R.id.dialog_category);
+				edtCategoryName.setText(category.getName());
+
+				builder.setView(view)
+.setPositiveButton(R.string.dialog_editcategory_save, new
+					DialogInterface.OnClickListener() {
+						public void onClick(DialogInterface dialog, int which) {
+							EditText edtCategoryName = ( EditText )
+							view.findViewById(R.id.dialog_category);
+							try {
+								category.setName(edtCategoryName.getText().toString());
+								Controller.instance(getActivity()).updateCategory(category);
+							}
+							catch(InvalidTextException e) {
+								Log.e("CategoryDialogFragment", e.getMessage()); 
+								e.printStackTrace();
+								Toast.makeText(getActivity().getApplicationContext(),
+									"Invalid category.", Toast.LENGTH_SHORT).show();
+							}
+							catch(DBException e) {
+								Log.e("CategoryDialogFragment", e.getMessage()); 
+								e.printStackTrace();
+							}
+							catch(Exception e) {
+								Log.e("CategoryDialogFragment", e.getMessage()); 
+								e.printStackTrace();
+							}
+						}
+					})
+.setNegativeButton(R.string.dialog_category_cancel, new
+					DialogInterface.OnClickListener() {
+						public void onClick(DialogInterface dialog, int id) {
+							EditCategoryDialogFragment.this.getDialog().cancel();
+						}
+					});
+
+				return builder.create();
+			}
+
+			@Override
+			public void onDestroy() {
+				super.onDestroy();
+				getActivity().recreate();
+			}
+
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.FilterListFragment {
+		//#ifdef manageCategory
+		adds import android.widget.AdapterView.AdapterContextMenuInfo;
+		adds import android.app.DialogFragment;
+		adds import android.view.MenuItem;
+		adds import android.app.FragmentTransaction;
+		adds public void onCreateContextMenu(ContextMenu menu, View v,
+			ContextMenuInfo menuInfo) {
+			super.onCreateContextMenu(menu, v, menuInfo);
+
+			menu.setHeaderTitle(R.string.context_menu_category_title);
+
+			MenuInflater inflater = getActivity().getMenuInflater();
+
+			if (((AdapterContextMenuInfo)menuInfo).position < 1) {
+	 	        	return;
+	 	    	}
+
+			inflater.inflate(R.menu.category_list_fragment_context_menu, menu);
+		}
+		adds public void reloadReminderListFragment() {
+			Fragment currentFragment = getActivity().getFragmentManager().findFragmentById(R.id.listReminders);
+			if (currentFragment instanceof ReminderListFragment) {
+				FragmentTransaction fragTransaction = (getActivity()).getFragmentManager().beginTransaction();
+				fragTransaction.detach(currentFragment);
+				fragTransaction.attach(currentFragment);
+				fragTransaction.commit();
+			}
+		}
+		adds @Override
+		public boolean onContextItemSelected(MenuItem item) {
+			if(item.getGroupId() == R.id.context_menu_category) {
+				AdapterView.AdapterContextMenuInfo info = (
+				AdapterView.AdapterContextMenuInfo ) item.getMenuInfo();
+				Category category =(( CategoryFilter )
+					lvFilters.getAdapter().getItem(info.position)).getCategory();
+
+				switch(item.getItemId()) {
+					case R.id.edit :
+					DialogFragment newFragment =
+					EditCategoryDialogFragment.newInstance(category);
+					newFragment.show(getFragmentManager(), "" + 
+						R.string.dialog_editcategory_title);
+					updateListView();
+					return true;
+					case R.id.delete :
+					try {
+						Controller.instance(getActivity().getApplicationContext()).deleteReminderByCategory(category);
+						Controller.instance(getActivity().getApplicationContext()).deleteCategory(category);
+					}
+					catch(DBException e) {
+						Log.e(TAG, e.getMessage());
+					}
+					reloadReminderListFragment();
+					updateListView();
+					return true;
+					default : return super.onContextItemSelected(item);
+				}
+
+			}
+			return super.onContextItemSelected(item);
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.ReminderActivity {
+		removes addListenerToSpinnerCategory();
+		//#ifdef manageCategory
+		adds private void addListenerToSpinnerCategory() {
+			spinnerCategory.setOnItemSelectedListener(new OnItemSelectedListener() {
+					public void onItemSelected(AdapterView<? extends Object> parent, View
+						view, int pos, long id) {
+						if(pos ==(spinnerCategory.getCount() - 1)) {
+							DialogFragment newFragment =
+							AddCategoryDialogFragment.newInstance(spinnerCategory);
+							newFragment.show(getFragmentManager(), "" +
+								R.string.dialog_addcategory_title);
+						}
+					}
+
+					public void onNothingSelected(AdapterView<? extends Object> parent) {
+
+					}
+				});
+		}
+		//#endif
+		removes getSpinnerCategory();
+		//#ifdef manageCategory
+		adds private Spinner getSpinnerCategory() throws Exception {
+			Spinner spinner = ( Spinner ) findViewById(R.id.spinnerCategories);
+
+			SpinnerAdapterGenerator<Category> adapterCategoryGenerator = new
+			SpinnerAdapterGenerator<Category>();
+
+			List<Category> categories = getCategories();
+
+			ArrayAdapter<Category> adapter =
+			adapterCategoryGenerator.getSpinnerAdapter(categories, this);
+
+			Category temp = new Category();
+			temp.setName("+ Category");
+			adapter.add(temp);
+
+			spinner.setAdapter(adapter);
+
+			return spinner;
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.ReminderFilterArrayAdapter {
+		removes ReminderFilterArrayAdapter(Context context, List<ReminderFilter>
+			objects);
+		//#ifdef manageCategory
+		adds public ReminderFilterArrayAdapter(Context context, List<ReminderFilter>
+			objects) {
+			super(context, R.layout.category_row, objects);
+		}
+		//#endif
+		removes getView(int position, View convertView, ViewGroup parent);
+		//#ifdef manageCategory
+		adds @Override
+		public View getView(int position, View convertView, ViewGroup parent) {
+			LinearLayout filterRow;
+
+			if(convertView == null) {
+				filterRow = new LinearLayout(getContext());
+				String inflater = Context.LAYOUT_INFLATER_SERVICE;
+				LayoutInflater vi;
+				vi = ( LayoutInflater ) getContext().getSystemService(inflater);
+				vi.inflate(R.layout.category_row, filterRow, true);
+			}
+			else {
+				filterRow = ( LinearLayout ) convertView;
+			}
+
+			TextView tvFilter = ( TextView )
+			filterRow.findViewById(R.id.row_categoryName);
+			tvFilter.setText(getItem(position).getName());
+
+			TextView tvNumReminders = ( TextView )
+			filterRow.findViewById(R.id.row_categoryCounter);
+			tvNumReminders.setText(Integer.toString(getItem(position).getNumReminders()));
+
+			return filterRow;
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.EditReminderActivity {
+		removes persist(Reminder reminder);
+		//#ifdef manageCategory
+		adds @Override 
+		protected void persist(Reminder reminder) {
+			try {
+				Category category = findCategory(reminder.getCategory());
+				if (category != null) {
+					reminder.setCategory(category);
+				} else {
+					Controller.instance(getApplicationContext()).addCategory(reminder.getCategory());
+					reminder.setCategory(findCategory(reminder.getCategory()));
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+	
+			try {
+				Controller.instance(getApplicationContext()).updateReminder(reminder);
+			} catch (DBException e) {
+				e.printStackTrace();
+			}
+			
+		}
+		//#endif
+	}
+}

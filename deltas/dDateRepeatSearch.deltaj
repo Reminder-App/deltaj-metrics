@@ -1,0 +1,76 @@
+delta dDateRepeatSearch {
+    modifies br.unb.cic.reminders.view.ReminderListFragment {
+        //#if dateRepeat && search
+        modifies updateListViewFilter(String filterRemider) {
+            ReminderFilter filter = new AllRemindersFilter(getActivity());
+			ArrayList<Reminder> reminders = new ArrayList<Reminder>();
+			for(Reminder item : filter.getReminderList()) {
+				if(item.getText().contains(filterRemider)) {
+					reminders.add(item);
+				}
+			}
+
+            adapter = new ReminderArrayAdapter(getActivity().getApplicationContext(), filter.getReminderList());
+
+            ReminderArrayAdapter adapterMonday, adapterTuesday, adapterWednesday, adapterThursday, adapterFriday, adapterSaturday, adapterSunday;
+
+            Reminder r = new Reminder();
+            List<Reminder> remindersModay = new ArrayList<Reminder>();
+            List<Reminder> remindersTuesday = new ArrayList<Reminder>();
+            List<Reminder> remindersWednesday = new ArrayList<Reminder>();
+            List<Reminder> remindersThursday = new ArrayList<Reminder>();
+            List<Reminder> remindersFriday = new ArrayList<Reminder>();
+            List<Reminder> remindersSaturday = new ArrayList<Reminder>();
+            List<Reminder> remindersSunday = new ArrayList<Reminder>();
+
+            for (int i = 0; i < adapter.getCount(); ++i) {
+                r = adapter.getItem(i);
+                if (r.isMonday())
+                    remindersModay.add(r);
+                if (r.isTuesday())
+                    remindersTuesday.add(r);
+                if (r.isWednesday())
+                    remindersWednesday.add(r);
+                if (r.isThursday())
+                    remindersThursday.add(r);
+                if (r.isFriday())
+                    remindersFriday.add(r);
+                if (r.isSaturday())
+                    remindersSaturday.add(r);
+                if (r.isSunday())
+                    remindersSunday.add(r);
+            }
+
+            adapterMonday = new ReminderArrayAdapter(getActivity().getApplicationContext(), remindersModay,
+				Color.rgb(0,0,0), ReminderArrayAdapter.MONDAY);
+            adapterTuesday = new ReminderArrayAdapter(getActivity().getApplicationContext(), remindersTuesday,
+                    Color.rgb(0,0,255), ReminderArrayAdapter.TUESDAY);
+            adapterWednesday = new ReminderArrayAdapter(getActivity().getApplicationContext(), remindersWednesday,
+                    Color.rgb(210,105,30), ReminderArrayAdapter.WEDNESDAY);
+            adapterThursday = new ReminderArrayAdapter(getActivity().getApplicationContext(), remindersThursday,
+                    Color.rgb(0,128,0), ReminderArrayAdapter.THURSDAY);
+            adapterFriday = new ReminderArrayAdapter(getActivity().getApplicationContext(), remindersFriday,
+                    Color.rgb(255,20,147), ReminderArrayAdapter.FRIDAY);
+            adapterSaturday = new ReminderArrayAdapter(getActivity().getApplicationContext(), remindersSaturday,
+                    Color.rgb(255,0,0), ReminderArrayAdapter.SATURDAY);
+            adapterSunday = new ReminderArrayAdapter(getActivity().getApplicationContext(), remindersSunday,
+                    Color.rgb(128,0,128), ReminderArrayAdapter.SUNDAY);
+
+            lvMonday.setAdapter(adapterMonday);
+            Utility.setListViewHeightBasedOnChildren(lvMonday);
+            lvTuesday.setAdapter(adapterTuesday);
+            Utility.setListViewHeightBasedOnChildren(lvTuesday);
+            lvWednesday.setAdapter(adapterWednesday);
+            Utility.setListViewHeightBasedOnChildren(lvWednesday);
+            lvThursday.setAdapter(adapterThursday);
+            Utility.setListViewHeightBasedOnChildren(lvThursday);
+            lvFriday.setAdapter(adapterFriday);
+            Utility.setListViewHeightBasedOnChildren(lvFriday);
+            lvSaturday.setAdapter(adapterSaturday);
+            Utility.setListViewHeightBasedOnChildren(lvSaturday);
+            lvSunday.setAdapter(adapterSunday);
+            Utility.setListViewHeightBasedOnChildren(lvSunday);
+        }
+        //#endif
+    }
+}

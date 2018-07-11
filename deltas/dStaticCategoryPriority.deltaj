@@ -1,0 +1,21 @@
+delta dStaticCategoryPriority {
+	modifies br.unb.cic.reminders.view.FilterListFragment {
+		//#if staticCategory && priority
+		adds import br.unb.cic.reminders.controller.PriorityFilter;
+		adds import br.unb.cic.reminders.model.Priority;
+		modifies listOfFilters() {
+			List<ReminderFilter> filters = original();
+			PriorityFilter highPriorityFilter = new PriorityFilter(Priority.HIGH, getActivity());
+			filters.add(highPriorityFilter);
+			PriorityFilter normalPriorityFilter = new PriorityFilter(Priority.NORMAL, getActivity());
+			filters.add(normalPriorityFilter);
+			PriorityFilter lowPriorityFilter = new PriorityFilter(Priority.LOW, getActivity());
+			filters.add(lowPriorityFilter);
+			return filters;
+		}
+		//#endif
+	}
+	modifies br.unb.cic.reminders.view.ReminderListFragment {
+		removes reloadFilterListFragment();
+	}
+}
