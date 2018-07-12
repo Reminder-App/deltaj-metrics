@@ -2,35 +2,45 @@ var fs = require('fs')
 var lr = require('readline')
 var stringify = require('csv-stringify')
 
-var Class    = 'AddReminderActivity'
-var Func     = ''
-var FuncType = ''
+const folder = './javas'
 
+// context state
 var Env      = []
+var Class    = ''
+
+// track nested features
 var Track    = []
 
-function main () {
 
-  var dirs = fs.readdirSync('./javas')
+async function main () {
 
-  // for (dir of dirs) {
+  var dirs = fs.readdirSync(folder)
+
+  for (dir of dirs) {
+    Class = dir.split('.')[0]
+
+    await loop (dir)
+  }
+
+  stringify(Env, function(err, output){
+    console.log(output)
+  });
+}
+
+function loop (dir) {
+  return new Promise( (resolve, reject) => {
     var lineReader = lr.createInterface({
-      input: fs.createReadStream('./javas/AddReminderActivity.java')
+      input: fs.createReadStream(folder + dir)
     })
-
+  
     lineReader.on('line', (l) => {
       handleLine(l.trim())
     })
-
+  
     lineReader.on('close', () => {
-      // console.log(Env)
-      // stringify(Env, function(err, output){
-      //   console.log(output)
-      // });
-      // writeCSV()
+      resolve()
     })
-  // }
-
+  })
 }
 
 
@@ -48,10 +58,6 @@ function saveOrUpdateEnv (feature) {
     Env.push({
       jClass: Class,
       feature: feature,
-      // function: {
-      //   type: FuncType,
-      //   name: Func
-      // },
       counter: 0,
       active: true
     })
@@ -60,7 +66,9 @@ function saveOrUpdateEnv (feature) {
 
 function handleLine (line) {
 
+
   if (line.startsWith('//#if ')) {
+    // parsing feature expression cases
     let fs
     let unique = false
 
@@ -90,6 +98,7 @@ function handleLine (line) {
 
     else {
       fs = line.substring(6)
+      Track.push(fs)
       unique = true
     }
 
@@ -105,19 +114,38 @@ function handleLine (line) {
 
   else if (line.startsWith('//#ifdef ')) {
     const f = line.substring(9)
+
+    // check if expression is nested
+    if (Track.length > 0 && Track[0] instanceof Array) {
+      const ds = Track[0].filter( (v) => v !== f)[0]
+      setInactive(ds)
+    }
     Track.push(f)
     saveOrUpdateEnv(f)
   }
 
   else if (line.startsWith('//#elifdef ')) {
     const f = line.substring(11)
+
+    if (Track.length > 0 && Track[0] instanceof Array) {
+      const ds = Track[0].filter( (v) => v !== f)[0]
+      setInactive(ds)
+    }
+
     saveOrUpdateEnv(f)
     setInactive(Track.pop())
     Track.push(f)
   }
 
   else if (line.startsWith('//#endif')) {
-    setInactive(Track.pop())
+    if (Track.length > 1 && Track[0] instanceof Array) {
+      for (f of Track[0]) {
+        setActive(f)
+      }
+      Track.pop()
+    } else {
+      setInactive(Track.pop())
+    }
   }
 
   else {
@@ -147,7 +175,14 @@ function setInactive (feature) {
       }
     }
   }
-  console.log(Env)
+}
+
+function setActive (feature) {
+  for (f of Env) {
+    if (f.feature == feature && f.jClass == Class) {
+      f.active = true
+    }
+  }
 }
 
 

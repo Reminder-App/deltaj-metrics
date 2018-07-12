@@ -2,19 +2,20 @@ var fs = require('fs')
 var lr = require('readline')
 var stringify = require('csv-stringify')
 
-var delta = ''
+const folder = './deltas/'
+
+var Delta = ''
 
 var Env   = []
 
-
 function main () {
 
-  var dirs = fs.readdirSync('./deltas')
+  var dirs = fs.readdirSync(folder)
   var counter = 0
 
   for (dir of dirs) {
     var lineReader = lr.createInterface({
-      input: fs.createReadStream('./deltas/'+dir)
+      input: fs.createReadStream(folder + dir)
     })
   
     lineReader.on('line', (l) => {
@@ -37,7 +38,7 @@ function saveOrUpdateEnv (feature) {
   let exists = false
   
   for (obj of Env) {
-    if (obj.feature == feature && obj.delta == delta) {
+    if (obj.feature == feature && obj.delta == Delta) {
       obj.active = true
       exists = true
     }
@@ -45,7 +46,7 @@ function saveOrUpdateEnv (feature) {
 
   if (!exists) {
     Env.push({
-      delta: delta,
+      delta: Delta,
       feature: feature,
       counter: 0,
       active: true
