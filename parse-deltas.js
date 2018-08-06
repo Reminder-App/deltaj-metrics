@@ -2,44 +2,57 @@ var fs = require('fs')
 var lr = require('readline')
 var stringify = require('csv-stringify')
 
-const folder = './deltas/'
+const folder = './deltas-v4/'
 
+// context state
+var Env   = []
 var Delta = ''
 
-var Env   = []
+// track nested features
+var Track    = []
 
-function main () {
+
+async function main () {
 
   var dirs = fs.readdirSync(folder)
-  var counter = 0
 
   for (dir of dirs) {
+    Delta = dir.split('.')[0]
+    var lineReader = lr.createInterface({
+      input: fs.createReadStream(folder + dir)
+    })
+  
+    await loop (dir)
+  }
+
+  stringify(Env, function(err, output){
+    console.log(output)
+  });
+
+}
+
+function loop (dir) {
+  return new Promise( (resolve) => {
     var lineReader = lr.createInterface({
       input: fs.createReadStream(folder + dir)
     })
   
     lineReader.on('line', (l) => {
-      handleLine(l.trim())      
+      handleLine(l.trim())
     })
-
+  
     lineReader.on('close', () => {
-      // console.log(Env)
-      stringify(Env, function(err, output){
-        console.log(output)
-      });
-      // writeCSV()
+      resolve()
     })
-  }
-
+  })
 }
 
 
-function saveOrUpdateEnv (feature) {
+function saveToEnv (feature) {
   let exists = false
   
   for (obj of Env) {
     if (obj.feature == feature && obj.delta == Delta) {
-      obj.active = true
       exists = true
     }
   }
@@ -49,41 +62,67 @@ function saveOrUpdateEnv (feature) {
       delta: Delta,
       feature: feature,
       counter: 0,
-      active: true
     })
   }
 }
 
 function handleLine (line) {
 
-  if (line.startsWith('delta ')) {
-    delta = line.substring(6).split(' {')[0]
-  }
-
-  else if (line.startsWith('//#if ')) {
-    const fs = line.substring(6).split(' && ')
-    for (f of fs) {
-      saveOrUpdateEnv(f)  
+  if (line.startsWith('//#ifdef ')) {
+    let fs
+    let unique = false
+    
+    if (line.includes('&&')) {
+      fs = line.substring(9).split(' && ') // returns array
+      Track.push(fs)
     }
-  }
+    else if (line.includes('||')) {
+      fs = line.substring(9).split(' || ')
+      Track.push(fs)
+    }
+    else {
+      fs = line.substring(9)
+      Track.push(fs)
+      unique = true
+    }
 
-  else if (line.startsWith('//#ifdef ')) {
-    const f = line.substring(9)
-    saveOrUpdateEnv(f)    
-  }
-
-  else if (line.startsWith('//#endif')) {
-    for (f of Env) {
-      if (f.active) {
-        f.active = false
+    if (unique) {
+      saveToEnv(fs)
+    }
+    else {  
+      for (f of fs) {
+        saveToEnv(f)  
       }
     }
   }
+  else if (line.startsWith('//#endif')) {
+    Track.pop()
+  }
+  else if(line == '') {
+    return
+  }
+  else {
+    // count active feature lines
+    countLines()
+  }
+}
 
-  // Count active feature lines
-  for (f of Env) {
-    if (f.active) {
-      f.counter = f.counter + 1
+function countLines () {
+  let i = Track.length - 1
+  if (Track[i] instanceof Array) {
+    for (ff of Track[i]) {
+      for (f of Env) {
+        if (f.feature == ff && f.delta == Delta) {
+          f.counter = f.counter + 1
+        }
+      }
+    }
+  }
+  else {
+    for (f of Env) {
+      if (f.feature == Track[i] && f.delta == Delta) {
+        f.counter = f.counter + 1
+      }
     }
   }
 }
